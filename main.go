@@ -26,7 +26,7 @@ type Category struct {
 }
 
 func main() {
-    pf, err := os.Open("input.txt")
+    pf, err := os.Open("example.txt")
     if err != nil {
         log.Fatalf("while opening file %q: %s", pf.Name(), err)
     }
@@ -66,20 +66,35 @@ func main() {
     }
 
     min := uint64(math.MaxUint64)
-    for _, seed := range seeds {
-        loc := seed
-        for c := 0; c < len(cs); c++ {
-            for m := 0; m < len(cs[c].Maps); m++ {
-                if cs[c].Maps[m].Src <= loc && loc <= cs[c].Maps[m].Src+cs[c].Maps[m].Rng {
-                    loc = loc - cs[c].Maps[m].Src + cs[c].Maps[m].Dst
-                    break
+    cache := make(map[uint64]uint64)
+    pairs := make([][]uint64, 0)
+
+    for i := 0; i < len(seeds)-2; i += 2 {
+        pairs = append(pairs, seeds[i:i+2])
+    }
+
+    for _, pair := range pairs {
+        for seed := pair[0]; seed < pair[0]+pair[1]; seed++ {
+            if l, ok := cache[seed]; ok {
+                min = l
+                continue
+            }
+            loc := seed
+            for c := 0; c < len(cs); c++ {
+                for m := 0; m < len(cs[c].Maps); m++ {
+                    if cs[c].Maps[m].Src <= loc && loc <= cs[c].Maps[m].Src+cs[c].Maps[m].Rng {
+                        loc = loc - cs[c].Maps[m].Src + cs[c].Maps[m].Dst
+                        break
+                    }
                 }
             }
-        }
-        if loc < min {
-            min = loc
+            if loc < min {
+                min = loc
+                cache[seed] = min
+            }
         }
     }
+
     fmt.Println(min)
 }
 
