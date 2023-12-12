@@ -8,7 +8,6 @@ import (
     "os"
     "strconv"
     "strings"
-    "sync"
 )
 
 const (
@@ -16,15 +15,14 @@ const (
 )
 
 type Map struct {
-    Src int
-    Dst int
-    Rng int
+    Src uint64
+    Dst uint64
+    Rng uint64
 }
 
 type Category struct {
-    Name  string
-    Maps  []Map
-    Pairs map[int]int
+    Name string
+    Maps []Map
 }
 
 func main() {
@@ -47,17 +45,16 @@ func main() {
     for i := 1; i < len(lines); {
         if strings.HasSuffix(lines[i], "map:") {
             cat := Category{
-                Name:  getCategoryName(lines[i]),
-                Maps:  make([]Map, 0),
-                Pairs: make(map[int]int),
+                Name: getCategoryName(lines[i]),
+                Maps: make([]Map, 0),
             }
             j := i + 1
             for ; j < len(lines) && strings.ContainsAny(lines[j], digits); j++ {
                 dsr := parseNumbers(lines[j])
                 m := Map{
-                    Src: dsr[1],
-                    Dst: dsr[0],
-                    Rng: dsr[2],
+                    Src: uint64(dsr[1]),
+                    Dst: uint64(dsr[0]),
+                    Rng: uint64(dsr[2]),
                 }
                 cat.Maps = append(cat.Maps, m)
             }
@@ -68,33 +65,27 @@ func main() {
         i++
     }
 
-    wg := &sync.WaitGroup{}
-
-    wg.Add(len(cs))
-    for c := 0; c < len(cs); c++ {
-        go pairs(c, cs, wg)
-    }
-    wg.Wait()
-
-    ml := math.MaxInt
-    for _, s := range seeds {
-        d := s
-        for _, c := range cs {
-            if n, ok := c.Pairs[d]; ok {
-                d = n
+    min := uint64(math.MaxUint64)
+    for _, seed := range seeds {
+        loc := seed
+        for c := 0; c < len(cs); c++ {
+            for m := 0; m < len(cs[c].Maps); m++ {
+                if cs[c].Maps[m].Src <= loc && loc <= cs[c].Maps[m].Src+cs[c].Maps[m].Rng {
+                    loc = loc - cs[c].Maps[m].Src + cs[c].Maps[m].Dst
+                    break
+                }
             }
         }
-        if d < ml {
-            ml = d
+        if loc < min {
+            min = loc
         }
     }
-
-    fmt.Println(ml)
+    fmt.Println(min)
 }
 
-func parseNumbers(line string) []int {
+func parseNumbers(line string) []uint64 {
     var nums []string
-    numbers := make([]int, 0)
+    numbers := make([]uint64, 0)
     switch {
     case strings.Contains(line, ":"):
         nums = strings.Split(strings.TrimSpace(strings.Split(line, ":")[1]), " ")
@@ -103,7 +94,7 @@ func parseNumbers(line string) []int {
     }
     for _, num := range nums {
         seed, _ := strconv.Atoi(strings.TrimSpace(num))
-        numbers = append(numbers, seed)
+        numbers = append(numbers, uint64(seed))
     }
 
     return numbers
@@ -115,17 +106,4 @@ func getCategoryName(line string) string {
     name := strings.ToTitle(str)
 
     return name
-}
-
-func pairs(c int, cs []Category, wg *sync.WaitGroup) {
-    defer wg.Done()
-
-    for m := 0; m < len(cs[c].Maps); m++ {
-        src := cs[c].Maps[m].Src
-        dst := cs[c].Maps[m].Dst
-        rng := cs[c].Maps[m].Rng
-        for n := 0; n < rng; n++ {
-            cs[c].Pairs[src+n] = dst + n
-        }
-    }
 }
